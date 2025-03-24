@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/TacoGameRemake/Scenes/MainMenu.unity
     guid: 77066560056dcfe4dacb28cb9612f42f
+  - enabled: 1
+    path: Assets/TacoGameRemake/Scenes/Gameplay.unity
+    guid: 848669c2611e58a4783cc1f65396a3de
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

@@ -1,14 +1,17 @@
+using TacoGameRemake.Scripts.Utils;
 using UnityEngine;
 
-public class MainMenuEnterParameters
+
+namespace TacoGameRemake.Scripts
 {
-
-    public string Result { get; }
-
-
-    public MainMenuEnterParameters(string result)
+    public class MainMenuEnterParameters : SceneEnterParameters
     {
-        Result = result;
+        public string Result { get; }
+
+        public MainMenuEnterParameters(string result) : base(Scenes.MAIN_MENU)
+        {
+            Result = result;
+        }
     }
 
 }

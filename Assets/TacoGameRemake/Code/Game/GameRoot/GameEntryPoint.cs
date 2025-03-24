@@ -1,8 +1,10 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using R3;
 using TacoGameRemake.Scripts.Utils;
 using TacoGameRemake.Scripts.UI;
+using Zenject;
 
 namespace TacoGameRemake.Scripts
 {
@@ -10,10 +12,14 @@ namespace TacoGameRemake.Scripts
     {
 
         private static GameEntryPoint _instance;
-        private Coroutines _coroutines;
-        private UIRootView _UIRoot;
-
-
+        
+        private readonly Coroutines _coroutines;
+        private readonly UIRootView _uiRoot;
+        
+        private readonly DiContainer _rootContainer = new DiContainer();
+        private readonly DiContainer _cachedSceneContainer;
+        
+            
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void AutoStartGame()
         {
@@ -24,14 +30,16 @@ namespace TacoGameRemake.Scripts
 
         private GameEntryPoint()
         {
-            _coroutines = new GameObject("[COURUTINES]").AddComponent<Coroutines>();
+            _coroutines = new GameObject("[COROUTINES]").AddComponent<Coroutines>();
             Object.DontDestroyOnLoad(_coroutines.gameObject);
 
             var prefabUIRoot = Resources.Load<UIRootView>("UIRoot");
 
-            _UIRoot = Object.Instantiate(prefabUIRoot);
-            Object.DontDestroyOnLoad(_UIRoot.gameObject);
-
+            _uiRoot = Object.Instantiate(prefabUIRoot);
+            Object.DontDestroyOnLoad(_uiRoot.gameObject);
+            
+            _rootContainer.Bind<UIRootView>().FromInstance(_uiRoot).AsSingle();
+            
 
         }
 
@@ -42,7 +50,8 @@ namespace TacoGameRemake.Scripts
 
             if (sceneName == Scenes.GAMEPLAY)
             {
-                _coroutines.StartCoroutine(LoadAndStartGameplay());
+                GameplayEnterParameters temp = new GameplayEnterParameters(TemporaryConstants.SAVE_FILE_PATH_PLACEHOLDER, TemporaryConstants.CURRENT_LEVEL_PLACEHOLDER);
+                _coroutines.StartCoroutine(LoadAndStartGameplay(temp));
                 return;
             }
 
@@ -58,49 +67,68 @@ namespace TacoGameRemake.Scripts
             }
 
 #endif
-
-            _coroutines.StartCoroutine(LoadAndStartGameplay());
+            _coroutines.StartCoroutine(LoadAndStartMainMenu());
 
 
         }
 
-        private IEnumerator LoadAndStartGameplay(GameplayEnterParameters gameplayEnterParameters = null)
+        private IEnumerator LoadAndStartGameplay(GameplayEnterParameters gameplayEnterParameters)
         {
-            _UIRoot.ShowLoadingScreen();
-
+            _uiRoot.ShowLoadingScreen();
+            
+            _cachedSceneContainer?.UnbindAll();
+            
             yield return LoadScene(Scenes.BOOT);
             yield return LoadScene(Scenes.GAMEPLAY);
 
-            yield return new WaitForSeconds(2);
+            yield return new WaitForSeconds(1);
+            
 
+            GameplayEntryPoint sceneEntryPoint = Object.FindFirstObjectByType<GameplayEntryPoint>();
+        
+            DiContainer gameplayContainer = new DiContainer(_rootContainer);
+            
+            Observable<GameplayExitParameters> exitMainMenuSignal = sceneEntryPoint.Run(gameplayContainer, gameplayEnterParameters);
 
-            GameplayEntryRoot sceneEntryRoot = Object.FindFirstObjectByType<GameplayEntryRoot>();
-            sceneEntryRoot.Run(_UIRoot, gameplayEnterParameters);
-
-
-            _UIRoot.HideLoadingScreen();
-
+            exitMainMenuSignal.Subscribe(_ => {
+                _coroutines.StartCoroutine(LoadAndStartMainMenu());
+            });
+            
+            _uiRoot.HideLoadingScreen();
+           
         }
 
         private IEnumerator LoadAndStartMainMenu(MainMenuEnterParameters mainMenuEnterParameters = null)
         {
-            _UIRoot.ShowLoadingScreen();
-
+            _uiRoot.ShowLoadingScreen();
+            
+            _cachedSceneContainer?.UnbindAll();
+            
             yield return LoadScene(Scenes.BOOT);
             yield return LoadScene(Scenes.MAIN_MENU);
 
-            yield return new WaitForSeconds(2);
-
+            yield return new WaitForSeconds(1);
+            
+        
+            DiContainer mainMenuContainer = new DiContainer(_rootContainer);
 
             MainMenuEntryPoint sceneEntryRoot = Object.FindFirstObjectByType<MainMenuEntryPoint>();
-            //sceneEntryRoot.Run(_UIRoot, gameplayEnterParameters);
+            Observable<MainMenuExitParameters> exitMainMenuSignal = sceneEntryRoot.Run(mainMenuContainer, mainMenuEnterParameters);
 
+            exitMainMenuSignal.Subscribe(mainMenuExitParameters =>
+            {
+                var targetSceneName = mainMenuExitParameters.TargetSceneEnterParameters.SceneName;
+ 
+                if (targetSceneName == Scenes.GAMEPLAY)
+                {
+                    _coroutines.StartCoroutine(LoadAndStartGameplay(mainMenuExitParameters.TargetSceneEnterParameters.As<GameplayEnterParameters>()));
+                }
+            });
 
-            _UIRoot.HideLoadingScreen();
+            _uiRoot.HideLoadingScreen();
 
         }
-
-
+        
         private IEnumerator LoadScene(string sceneName)
         {
             yield return SceneManager.LoadSceneAsync(sceneName);

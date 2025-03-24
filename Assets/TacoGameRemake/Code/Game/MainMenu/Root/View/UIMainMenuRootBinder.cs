@@ -1,16 +1,20 @@
+using R3;
 using UnityEngine;
-
-public class UIMainMenuRootBinder : MonoBehaviour
+ 
+namespace TacoGameRemake.Scripts.UI
 {
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public class UIMainMenuRootBinder : MonoBehaviour
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        private Subject<Unit> _exitSceneSignalSubject;
+ 
+        public void HandleGoToGameplayButtonClick()
+        {
+            _exitSceneSignalSubject?.OnNext(Unit.Default);
+        }
+ 
+        public void Bind(Subject<Unit> exitSceneSignalSubj)
+        {
+            _exitSceneSignalSubject = exitSceneSignalSubj;
+        }
     }
 }
